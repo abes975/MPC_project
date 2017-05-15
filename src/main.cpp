@@ -98,8 +98,31 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value;
-          double throttle_value;
+          Eigen::VectorXd ptsxv(ptsx.size());
+          Eigen::VectorXd ptsyv(ptsy.size());
+          for(int i = 0; i < ptsx.size(); i++)
+            ptsxv(i) = ptsx.at(i);
+          for(int i = 0; i < ptsy.size(); i++)
+            ptsyv(i) = ptsy.at(i);
+          Eigen::VectorXd coeffs = polyfit(ptsxv, ptsyv, 3);
+          // The cross track error is calculated by evaluating at polynomial at x, f(x)
+          // and subtracting y.
+          double cte = polyeval(coeffs, px) - py;
+          /// derivative of 3rd grade polynomio
+          double epsi =  psi - atan(coeffs[0] + (2 * coeffs[1] * px) + (3 * coeffs[2]* (px*px)));
+
+          Eigen::VectorXd state(6);
+          state(0) = px;
+          state(1) = py;
+          state(2) = psi;
+          state(3) = v;
+          state(4) = cte;
+          state(5) = epsi;
+
+          vector<double> vars = mpc.Solve(state, coeffs);
+
+          double steer_value = vars[5];
+          double throttle_value = vars[6];
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;

@@ -6,7 +6,7 @@ then
 fi
 cd $1
 
-prefix=/usr/local
+prefix=/usr/
 srcdir=$PWD
 
 echo "Building Ipopt from ${srcdir}"
