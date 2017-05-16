@@ -50,6 +50,8 @@ class FG_eval {
     fg[0] = 0;
 
     // The part of the cost based on the reference state.
+    // This is the difference between where we are and where we want to go
+    // and also what speed we want to reach
     for (int i = 0; i < N; i++) {
       fg[0] += CppAD::pow(vars[cte_start + i] - desired_cte, 2);
       fg[0] += CppAD::pow(vars[epsi_start + i] - desired_epsi, 2);
@@ -64,7 +66,7 @@ class FG_eval {
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += 500 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
@@ -100,8 +102,8 @@ class FG_eval {
       AD<double> delta0 = vars[delta_start + i];
       AD<double> a0 = vars[a_start + i];
 
-      AD<double> f0 = coeffs[0] + (2 * coeffs[1] * x0) + (3 * coeffs[2]* (x0*x0));
-      AD<double> psides0 = CppAD::atan(coeffs[1]);
+      AD<double> f0 = coeffs[1] + (2 * coeffs[2]] * x0) + (3 * coeffs[3]* (x0*x0));
+      AD<double> psides0 = CppAD::atan(coeffs[1] + (2 * coeffs[2] * x0) + (3 * coeffs[3]* (x0*x0)));
 
       // Here's `x` to get you started.
       // The idea here is to constraint this value to be 0.
