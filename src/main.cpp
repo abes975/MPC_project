@@ -98,6 +98,7 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
+
           Eigen::VectorXd ptsxv(ptsx.size());
           Eigen::VectorXd ptsyv(ptsy.size());
           for(int i = 0; i < ptsx.size(); i++)
@@ -109,7 +110,7 @@ int main() {
           // and subtracting y.
           double cte = polyeval(coeffs, px) - py;
           /// derivative of 3rd grade polynomio a*X^3 + b * X^2 + c* X + d -> a + 2 * b * x + 3 * a * X^2
-          double epsi =  psi - atan(coeffs[1] + (2 * coeffs[2] * px) + (3 * coeffs[3]* (px*px)));
+          double epsi =  psi - atan(coeffs[0] + (2 * coeffs[1] * px) + (3 * coeffs[2]* (px*px)));
 
           Eigen::VectorXd state(6);
           state(0) = px;
@@ -120,20 +121,25 @@ int main() {
           state(5) = epsi;
 
           vector<double> vars = mpc.Solve(state, coeffs);
+          for(int i = 0 ; i < vars.size(); i++)
+            cout << vars[i] << " ";
+          cout << endl;
 
-          double steer_value = vars[5];
-          double throttle_value = vars[6];
+          double steer_value = vars[6];
+          double throttle_value = vars[7];
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
-          //Display the MPC predicted trajectory 
+          //Display the MPC predicted trajectory
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
+          mpc_x_vals.push_back(vars[0]);
+          mpc_y_vals.push_back(vars[1]);
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
@@ -141,9 +147,10 @@ int main() {
           //Display the waypoints/reference line
           vector<double> next_x_vals;
           vector<double> next_y_vals;
-
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+          next_x_vals.push_back(px);
+          next_y_vals.push_back(py);
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
