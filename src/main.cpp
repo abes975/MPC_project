@@ -108,8 +108,8 @@ int main() {
           // The cross track error is calculated by evaluating at polynomial at x, f(x)
           // and subtracting y.
           double cte = polyeval(coeffs, px) - py;
-          /// derivative of 3rd grade polynomio
-          double epsi =  psi - atan(coeffs[0] + (2 * coeffs[1] * px) + (3 * coeffs[2]* (px*px)));
+          /// derivative of 3rd grade polynomio a*X^3 + b * X^2 + c* X + d -> a + 2 * b * x + 3 * a * X^2
+          double epsi =  psi - atan(coeffs[1] + (2 * coeffs[2] * px) + (3 * coeffs[3]* (px*px)));
 
           Eigen::VectorXd state(6);
           state(0) = px;
