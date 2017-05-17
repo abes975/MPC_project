@@ -109,8 +109,8 @@ int main() {
           // The cross track error is calculated by evaluating at polynomial at x, f(x)
           // and subtracting y.
           double cte = polyeval(coeffs, px) - py;
-          /// derivative of 3rd grade polynomio a*X^3 + b * X^2 + c* X + d -> a + 2 * b * x + 3 * a * X^2
-          double epsi =  psi - atan(coeffs[0] + (2 * coeffs[1] * px) + (3 * coeffs[2]* (px*px)));
+          /// derivative of 3rd grade polynomio a*X^3 + b * X^2 + c* X + d -> c + 2 * b * x + 3 * a * X^2
+          double epsi =  psi - atan(coeffs[1] + (2 * coeffs[2] * px) + (3 * coeffs[3]* (px*px)));
 
           Eigen::VectorXd state(6);
           state(0) = px;
@@ -121,9 +121,6 @@ int main() {
           state(5) = epsi;
 
           vector<double> vars = mpc.Solve(state, coeffs);
-          for(int i = 0 ; i < vars.size(); i++)
-            cout << vars[i] << " ";
-          cout << endl;
 
           double steer_value = vars[6];
           double throttle_value = vars[7];
@@ -138,8 +135,11 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
-          mpc_x_vals.push_back(vars[0]);
-          mpc_y_vals.push_back(vars[1]);
+          for(int i = 0 ; i < ptsx.size(); i++) {
+            double dist = sqrt( pow(ptsx.at(i) - vars[0],2) + pow(ptsy.at(i) - vars[1],2));
+            mpc_x_vals.push_back(-dist * cos(psi));
+            mpc_y_vals.push_back(-dist * sin(psi));
+          }
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
@@ -149,8 +149,11 @@ int main() {
           vector<double> next_y_vals;
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
-          next_x_vals.push_back(px);
-          next_y_vals.push_back(py);
+          for(int i = 0 ; i < ptsx.size(); i++) {
+            double dist = sqrt( pow(ptsx.at(i) - px,2) + pow(ptsy.at(i) - py,2));
+            next_x_vals.push_back(-dist * cos(psi));
+            next_y_vals.push_back(-dist * sin(psi));
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
