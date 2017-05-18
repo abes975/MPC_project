@@ -7,12 +7,12 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 7;
-double dt = 0.1;
+size_t N = 10;
+double dt = 0.10;
 
 double desired_cte = 0;
 double desired_epsi = 0;
-double desired_v = 30;
+double desired_v = 20;
 
 // These are the OFFSET inside the array :(( of the variable inside the vector
 // Used by the optimizer...VERY VERY CONFUSING!!!!
@@ -66,7 +66,7 @@ class FG_eval {
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += 500 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
@@ -86,7 +86,7 @@ class FG_eval {
       AD<double> x1 = vars[x_start + i + 1];
       AD<double> y1 = vars[y_start + i + 1];
       AD<double> psi1 = vars[psi_start + i + 1];
-      AD<double> speed1 = vars[v_start + i + 1];
+      AD<double> v1 = vars[v_start + i + 1];
       AD<double> cte1 = vars[cte_start + i + 1];
       AD<double> epsi1 = vars[epsi_start + i + 1];
 
@@ -94,7 +94,7 @@ class FG_eval {
       AD<double> x0 = vars[x_start + i];
       AD<double> y0 = vars[y_start + i];
       AD<double> psi0 = vars[psi_start + i];
-      AD<double> speed0 = vars[v_start + i];
+      AD<double> v0 = vars[v_start + i];
       AD<double> cte0 = vars[cte_start + i];
       AD<double> epsi0 = vars[epsi_start + i];
 
@@ -104,7 +104,7 @@ class FG_eval {
 
       AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0 * x0 + coeffs[3] * x0 * x0 * x0;
       //AD<double> f0 = coeffs[1] + (2 * coeffs[2] * x0) + (3 * coeffs[3]* (x0*x0));
-      AD<double> psides0 = CppAD::atan(coeffs[1] + (2 * coeffs[2] * x0) + (3 * coeffs[3]* (x0*x0)));
+      AD<double> psides0 = CppAD::atan(coeffs[1] + 2 * coeffs[2] * x0 + 3 * coeffs[3]* x0 *x0);
 
       // Here's `x` to get you started.
       // The idea here is to constraint this value to be 0.
@@ -116,14 +116,14 @@ class FG_eval {
       // v_[t+1] = v[t] + a[t] * dt
       // cte[t+1] = f(x[t]) - y[t] + v[t] * sin(epsi[t]) * dt
       // epsi[t+1] = psi[t] - psides[t] + v[t] * delta[t] / Lf * dt
-      fg[2 + x_start + i] = x1 - (x0 + speed0 * CppAD::cos(psi0) * dt);
-      fg[2 + y_start + i] = y1 - (y0 + speed0 * CppAD::sin(psi0) * dt);
-      fg[2 + psi_start + i] = psi1 - (psi0 + speed0 * delta0 / Lf * dt);
-      fg[2 + v_start + i] = speed1 - (speed0 + a0 * dt);
+      fg[2 + x_start + i] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
+      fg[2 + y_start + i] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
+      fg[2 + psi_start + i] = psi1 - (psi0 + v0 * delta0 / Lf * dt);
+      fg[2 + v_start + i] = v1 - (v0 + a0 * dt);
       fg[2 + cte_start + i] =
-          cte1 - ((f0 - y0) + (speed0 * CppAD::sin(epsi0) * dt));
+          cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt));
       fg[2 + epsi_start + i] =
-          epsi1 - ((psi0 - psides0) + speed0 * delta0 / Lf * dt);
+          epsi1 - ((psi0 - psides0) + v0 * delta0 / Lf * dt);
     }
   }
 };
@@ -131,7 +131,10 @@ class FG_eval {
 //
 // MPC class definition implementation.
 //
-MPC::MPC() {}
+MPC::MPC() {
+              pred_traj_x.resize(N-1);
+              pred_traj_y.resize(N-1);
+           }
 MPC::~MPC() {}
 
 vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
@@ -252,7 +255,11 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // TODO: Return the first actuator values. The variables can be accessed with
   // `solution.x[i]`.
-  //
+	for (int i = 1; i < N; i++) {
+    pred_traj_x[i-1] = solution.x[x_start + i];
+    pred_traj_y[i-1] = solution.x[y_start + i];
+	}
+
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
   return {solution.x[x_start + 1],   solution.x[y_start + 1],

@@ -92,25 +92,31 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-          /*
-          * TODO: Calculate steeering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
+          // Convert waypoints ptsx and ptsy in car coordinates...
+          // |x'| = | cos(a) sin(a)  | * |x|
+          // |y'| = | -sin(a) cos(a) | * |y|
+          Eigen::VectorXd x(ptsx.size());
+          Eigen::VectorXd y(ptsy.size());
+          double sin_psi = sin(psi);
+          double cos_psi = cos(psi);
+          for (int i = 0; i < ptsx.size(); i++) {
+            double cx = ptsx[i] - px;
+            double cy = ptsy[i] - py;
+            x[i] = cx * cos_psi + cy * sin_psi;
+            y[i] = -cx * sin_psi + cy * cos_psi;
+          }
 
-          Eigen::VectorXd ptsxv(ptsx.size());
-          Eigen::VectorXd ptsyv(ptsy.size());
-          for(int i = 0; i < ptsx.size(); i++)
-            ptsxv(i) = ptsx.at(i);
-          for(int i = 0; i < ptsy.size(); i++)
-            ptsyv(i) = ptsy.at(i);
-          Eigen::VectorXd coeffs = polyfit(ptsxv, ptsyv, 3);
-          // The cross track error is calculated by evaluating at polynomial at x, f(x)
-          // and subtracting y.
-          double cte = polyeval(coeffs, px) - py;
+          Eigen::VectorXd coeffs = polyfit(x, y, 3);
+          // The cross track error is calculated by evaluating at polynomial at 0
+          // as now in car coordinates cte is the y axis coordinate of the x = 0.
+          // so we evaluate the polynomio we fitted in point (x,y) = (0,0).
+          // cte = f(x) - y but y = 0.
+          double cte = polyeval(coeffs, 0);
           /// derivative of 3rd grade polynomio a*X^3 + b * X^2 + c* X + d -> c + 2 * b * x + 3 * a * X^2
-          double epsi =  psi - atan(coeffs[1] + (2 * coeffs[2] * px) + (3 * coeffs[3]* (px*px)));
+          // But we need to evaluate at x=0 so we will just have coeffs[1] term
+          // we have - sign as our y axis is oriented on the left of the car!
+          // coeffs[1] + (2 * coeffs[2] * 0) + (3 * coeffs[3]* (0*0)) -> coeffs[1]
+          double epsi = -atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
           state(0) = px;
@@ -126,33 +132,27 @@ int main() {
           double throttle_value = vars[7];
 
           json msgJson;
-          msgJson["steering_angle"] = steer_value;
+          msgJson["steering_angle"] = -steer_value;
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
+          //vector<double> mpc_x_vals;
+          //vector<double> mpc_y_vals;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
-          for(int i = 0 ; i < ptsx.size(); i++) {
-            double dist = sqrt( pow(ptsx.at(i) - vars[0],2) + pow(ptsy.at(i) - vars[1],2));
-            mpc_x_vals.push_back(-dist * cos(psi));
-            mpc_y_vals.push_back(-dist * sin(psi));
-          }
 
-          msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
+          msgJson["mpc_x"] = mpc.pred_traj_x;
+          msgJson["mpc_y"] = mpc.pred_traj_y;
 
           //Display the waypoints/reference line
           vector<double> next_x_vals;
           vector<double> next_y_vals;
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
-          for(int i = 0 ; i < ptsx.size(); i++) {
-            double dist = sqrt( pow(ptsx.at(i) - px,2) + pow(ptsy.at(i) - py,2));
-            next_x_vals.push_back(-dist * cos(psi));
-            next_y_vals.push_back(-dist * sin(psi));
+          for(int i = 0 ; i < x.size(); i++) {
+            next_x_vals.push_back(x(i));
+            next_y_vals.push_back(y(i));
           }
 
           msgJson["next_x"] = next_x_vals;
