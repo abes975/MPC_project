@@ -100,10 +100,10 @@ int main() {
           double sin_psi = sin(psi);
           double cos_psi = cos(psi);
           for (int i = 0; i < ptsx.size(); i++) {
-            double cx = ptsx[i] - px;
-            double cy = ptsy[i] - py;
-            x[i] = cx * cos_psi + cy * sin_psi;
-            y[i] = -cx * sin_psi + cy * cos_psi;
+            double mx = ptsx[i] - px;
+            double my = ptsy[i] - py;
+            x[i] = mx * cos_psi + my * sin_psi;
+            y[i] = -mx * sin_psi + my * cos_psi;
           }
 
           Eigen::VectorXd coeffs = polyfit(x, y, 3);
@@ -119,31 +119,33 @@ int main() {
           double epsi = -atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
-          state(0) = px;
-          state(1) = py;
-          state(2) = psi;
+          state(0) = 0;
+          state(1) = 0;
+          state(2) = 0;
           state(3) = v;
           state(4) = cte;
           state(5) = epsi;
 
           vector<double> vars = mpc.Solve(state, coeffs);
 
-          double steer_value = vars[6];
+          double steer_value = -vars[6];
           double throttle_value = vars[7];
 
           json msgJson;
-          msgJson["steering_angle"] = -steer_value;
+          msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory
-          //vector<double> mpc_x_vals;
-          //vector<double> mpc_y_vals;
+          vector<double> mpc_x_vals;
+          vector<double> mpc_y_vals;
 
+          mpc_x_vals.push_back(vars[0]);
+          mpc_y_vals.push_back(vars[1]);
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
-          msgJson["mpc_x"] = mpc.pred_traj_x;
-          msgJson["mpc_y"] = mpc.pred_traj_y;
+          msgJson["mpc_x"] = mpc_x_vals;
+          msgJson["mpc_y"] = mpc_y_vals;
 
           //Display the waypoints/reference line
           vector<double> next_x_vals;
