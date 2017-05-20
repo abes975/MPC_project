@@ -7,11 +7,14 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 10;
+// Try to prdedict almost 1.5 seconds ahead...that means N = 10 dt = 0.15s
+// Our simulator has 100ms latency...so probably no meaning in reducing
+// dt under 0.1...
+size_t N = 8;
 double dt = 0.15;
 
-double desired_cte = 0;
-double desired_epsi = 0;
+double desired_cte = 0.0;
+double desired_epsi = 0.0;
 double desired_v = 100;
 
 // These are the OFFSET inside the array :(( of the variable inside the vector
@@ -54,20 +57,20 @@ class FG_eval {
     // and also what speed we want to reach
     for (int i = 0; i < N; i++) {
       fg[0] += 2000 * CppAD::pow(vars[cte_start + i] - desired_cte, 2);
-      fg[0] += 2000 * CppAD::pow(vars[epsi_start + i] - desired_epsi, 2);
+      fg[0] += 1300 * CppAD::pow(vars[epsi_start + i] - desired_epsi, 2);
       fg[0] += CppAD::pow(vars[v_start + i] - desired_v, 2);
     }
 
     // Minimize the use of actuators.
     for (int i = 0; i < N - 1; i++) {
-      fg[0] += 20 * CppAD::pow(vars[delta_start + i], 2);
-      fg[0] += 40 * CppAD::pow(vars[a_start + i], 2);
+      fg[0] += 45 * CppAD::pow(vars[delta_start + i], 2);
+      fg[0] += 35 * CppAD::pow(vars[a_start + i], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += 500 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
-      fg[0] += 100 * CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
+      fg[0] += 700 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += 300 * CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
     // At fg[0] we have cost value so we need to shift up by one all the other
@@ -254,8 +257,19 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // `solution.x[i]`.
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
-  return {solution.x[x_start + 1],   solution.x[y_start + 1],
-          solution.x[psi_start + 1], solution.x[v_start + 1],
-          solution.x[cte_start + 1], solution.x[epsi_start + 1],
-          solution.x[delta_start],   solution.x[a_start]};
+    std::vector<double> results(2 + 2 * (N-1));
+    results[0] = solution.x[delta_start];
+    results[1] = solution.x[a_start];
+    // indices 2 to (N-1) + 1 has x coordinates
+    // indices (N - 1) + 2 -> 2 (N-1) + 2 has y coordinates
+    for(int i = 2; i < N + 1 ; i++) {
+      results[i] = solution.x[x_start + i - 1];
+      results[N + i] = solution.x[y_start + i - 1];
+    }
+    return results;
+
+  // return {solution.x[x_start + 1],   solution.x[y_start + 1],
+  //         solution.x[psi_start + 1], solution.x[v_start + 1],
+  //         solution.x[cte_start + 1], solution.x[epsi_start + 1],
+  //         solution.x[delta_start],   solution.x[a_start]};
 }

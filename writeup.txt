@@ -1,0 +1,53 @@
+* Model description.
+
+I used the kinematic equation in order to create my model.
+So given x,y,psi,v measurement at time t0 I derived the new state for the
+vehicle at time t1 using the kinematic equation.
+
+* Time length and frequency
+
+That was one of the hardest point to figure out.
+As frequency as the simulator has 100ms of latency I decided not to go
+below that value as my system can't react quickly.
+And I decided to calculate 1.5 second of time in the future.
+That seems a reasonable amount of time as things does not change so quickly on
+a road environment.
+Give the total time T and the frequency (dt) of 0.15 seconds..was straight forward
+to calculate N as T / dt so N becomes 10.
+I tried to use a bigger N and also to increase dt but (i.e. N 30 - 50 - 100) and
+(dt = 0.25, 0.30, 0.5) but the performance of the MPC became worse.
+
+I tried also to use a lower value of dt (i.e. 0.05) but again the system performance
+was worse I think that's is due to the latency.
+
+* Polynomial Fitting and MPC Preprocessing
+I choose to fit the waypoints with a 3rd order polyomio. The reason behind this
+choice was because the trajectory we are considering is not a straight line
+and a 3rd order polynomio can deal well with curves and fit also a S shape road.
+
+The waypoints I got from the simulator were transformed from map coordinates
+ into car coordinate system by a rotation operation where the rotation angle
+was psi (given in the simulator data).
+So in order to transform map coordinate into car coordinates I used the following
+x_car = x_map * cos(psi) + y_map * sin(psi)
+y_car = -x_map * sin(psi) + y_map * cos(psi)
+where x_map is x_waypoint - px (as we have also a translation in our transform)
+and  y_map is  y_waypoint - py
+
+I used those points to draw the yellow reference line in the simulator.
+
+
+With this transformation is very easy to find cte measurement as now the
+the cte in the car reference system is just the value of the polynomio that
+fits the trajectory calculated in the point x0 = 0 and subtracted the value
+on the y axis in the point y0 = 0.
+
+epsi the error in the orientation is given by the arc tangent of  the
+derivative of the fitting polynomio evaluated in 0,0. so only the constant term
+in the derivative (ie .polynomio is a * x^3 + b * x^2 + c * x^1 + d and the
+derivative is ( 2 * a * x^2 + 1 * b * x + c) so if I evaluate in x=0 only the c
+term remains.
+Due to the fact that the angles increases anticlockwise a minus (-) is necessary
+on the operation so epsi = - arctg(c)
+
+* Model Predictive Control with Latency
