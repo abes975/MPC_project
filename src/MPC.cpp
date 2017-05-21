@@ -260,11 +260,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     std::vector<double> results(2 + 2 * (N-1));
     results[0] = solution.x[delta_start];
     results[1] = solution.x[a_start];
-    // indices 2 to (N-1) + 1 has x coordinates
-    // indices (N - 1) + 2 -> 2 (N-1) + 2 has y coordinates
-    for(int i = 2; i < N + 1 ; i++) {
-      results[i] = solution.x[x_start + i - 1];
-      results[N + i] = solution.x[y_start + i - 1];
+    for(int i = 2; i <= N; i++) {
+      results[i] = solution.x[x_start + i - 2];
+      results[N + i] = solution.x[y_start + i - 2];
     }
     return results;
 

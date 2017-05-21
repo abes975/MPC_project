@@ -17,6 +17,8 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 
+// It's a duplicate value as it's present also in MPC.cpp...:(
+const double Lf = 2.67;
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
@@ -92,6 +94,8 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          double steer_value = j[1]["steering_angle"];
+          double throttle_value = j[1]["throttle"];
           // Convert waypoints ptsx and ptsy in car coordinates...
           // |x'| = | cos(a) sin(a)  | * |x|
           // |y'| = | -sin(a) cos(a) | * |y|
@@ -106,30 +110,34 @@ int main() {
             y[i] = -mx * sin_psi + my * cos_psi;
           }
 
+          double latency = 0.1;
+          // After trasforming to car coord.. x0, y0 and psi are 0 so here
+          // we take into account latency of the simulator.
+          double x0 =  v * latency;
+          double y0 = 0;
+          // not sure if I have to convert steer_value into grad here...or
+          // radians is ok.
+          psi = -v * steer_value / Lf * latency;
+          v += throttle_value * latency;
+
           Eigen::VectorXd coeffs = polyfit(x, y, 3);
-          // The cross track error is calculated by evaluating at polynomial at 0
-          // as now in car coordinates cte is the y axis coordinate of the x = 0.
-          // so we evaluate the polynomio we fitted in point (x,y) = (0,0).
-          // cte = f(x) - y but y = 0.
-          double cte = polyeval(coeffs, 0);
+          double cte = polyeval(coeffs, x0); //- y0 that is 0;
           /// derivative of 3rd grade polynomio a*X^3 + b * X^2 + c* X + d -> c + 2 * b * x + 3 * a * X^2
-          // But we need to evaluate at x=0 so we will just have coeffs[1] term
-          // we have - sign as our y axis is oriented on the left of the car!
-          // coeffs[1] + (2 * coeffs[2] * 0) + (3 * coeffs[3]* (0*0)) -> coeffs[1]
-          double epsi = -atan(coeffs[1]);
+          double epsi = psi - atan(coeffs[1] + 2*coeffs[2]* x0 + 3*coeffs[3]* x0* x0);
 
           Eigen::VectorXd state(6);
-          state(0) = 0;
-          state(1) = 0;
-          state(2) = 0;
+          // Take into account latency before optimizing values
+          state(0) = x0;
+          state(1) = y0;
+          state(2) = psi;
           state(3) = v;
           state(4) = cte;
           state(5) = epsi;
 
           vector<double> vars = mpc.Solve(state, coeffs);
 
-          double steer_value = -vars[0];
-          double throttle_value = vars[1];
+          steer_value = -vars[0];
+          throttle_value = vars[1];
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
@@ -140,9 +148,9 @@ int main() {
           vector<double> mpc_x_vals(limit);
           vector<double> mpc_y_vals(limit);
 
-          for (int i = 2; i < limit + 2; i++) {
-            mpc_x_vals[i-2] = vars[i];
-            mpc_y_vals[i-2] = vars[limit + i];
+          for (int i = 0; i < limit; i++) {
+            mpc_x_vals[i] = vars[i+2];
+            mpc_y_vals[i] = vars[limit + 2 + i];
           }
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line

@@ -3,6 +3,10 @@
 I used the kinematic equation in order to create my model.
 So given x,y,psi,v measurement at time t0 I derived the new state for the
 vehicle at time t1 using the kinematic equation.
+Inside the optimizer I determined empirically some constants to multiply the cost
+of the change of steering, or change in acceleration and so on...in order
+to have a smooth behavior of the car even if at high speed
+
 
 * Time length and frequency
 
@@ -51,3 +55,11 @@ Due to the fact that the angles increases anticlockwise a minus (-) is necessary
 on the operation so epsi = - arctg(c)
 
 * Model Predictive Control with Latency
+After I conveted coordinates from map system to car system I take into account
+latency.
+I just consider the latency time as it was a delta time (dt) where my car
+change status...so before I feed the optimizer with the data I added
+the cotribution of the latency using kinematic equations to my model.
+so my car position x becomes x + v * cos(0) * dt (where dt is 0.1s and 0 is
+the psi angle after the conversion). I did this reasoning for all the
+parameters and then passed them to the optimizer.
