@@ -7,15 +7,18 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-// Try to prdedict almost 1.5 seconds ahead...that means N = 10 dt = 0.15s
+// Try to prdedict almost .8 seconds ahead...that means N = 8 dt = 0.10s
 // Our simulator has 100ms latency...so probably no meaning in reducing
-// dt under 0.1...
+// dt under 0.1...or the point is how much ahead we predict...
 size_t N = 8;
-double dt = 0.15;
+double dt = 0.10;
+
+// How many values average the prediction
+int how_many = 4;
 
 double desired_cte = 0.0;
 double desired_epsi = 0.0;
-double desired_v = 100;
+double desired_v = 60;
 
 // These are the OFFSET inside the array :(( of the variable inside the vector
 // Used by the optimizer...VERY VERY CONFUSING!!!!
@@ -56,21 +59,22 @@ class FG_eval {
     // This is the difference between where we are and where we want to go
     // and also what speed we want to reach
     for (int i = 0; i < N; i++) {
-      fg[0] += 2000 * CppAD::pow(vars[cte_start + i] - desired_cte, 2);
-      fg[0] += 1300 * CppAD::pow(vars[epsi_start + i] - desired_epsi, 2);
+      fg[0] += 10 * CppAD::pow(vars[cte_start + i] - desired_cte, 2);
+      fg[0] += 15 * CppAD::pow(vars[epsi_start + i] - desired_epsi, 2);
+      // With 10 reach 78.8 (and desired_v = 40)
       fg[0] += CppAD::pow(vars[v_start + i] - desired_v, 2);
     }
 
     // Minimize the use of actuators.
     for (int i = 0; i < N - 1; i++) {
-      fg[0] += 45 * CppAD::pow(vars[delta_start + i], 2);
-      fg[0] += 35 * CppAD::pow(vars[a_start + i], 2);
+      fg[0] += CppAD::pow(vars[delta_start + i], 2);
+      fg[0] += 40 * CppAD::pow(vars[a_start + i], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += 700 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
-      fg[0] += 300 * CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
+      fg[0] += 500 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += 100 * CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
     // At fg[0] we have cost value so we need to shift up by one all the other
@@ -182,10 +186,13 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // The upper and lower limits of delta are set to -25 and 25
   // degrees (values in radians).  (25 * PI / 180)
-  // NOTE: Feel free to change this to something else.
+  // What if i set those values between -1 and 1 ?? instead of normalizing
+  // after returing the value?
   for (int i = delta_start; i < a_start; i++) {
-    vars_lowerbound[i] = -0.436332;
-    vars_upperbound[i] = 0.436332;
+    //vars_lowerbound[i] = -0.436332;
+    //vars_upperbound[i] = 0.436332;
+    vars_lowerbound[i] = -1.0;
+    vars_upperbound[i] = 1.0;
   }
 
   // Acceleration/decceleration upper and lower limits.
@@ -225,7 +232,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   //
   // options for IPOPT solver
   std::string options;
-  // Uncomment this if you'd like more print information
+  // comment this if you'd like more print information
   options += "Integer print_level  0\n";
   // NOTE: Setting sparse to true allows the solver to take advantage
   // of sparse routines, this makes the computation MUCH FASTER. If you
@@ -258,8 +265,12 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
     std::vector<double> results(2 + 2 * (N-1));
-    results[0] = solution.x[delta_start];
+    for (int j = 0 ; j < how_many; j++) {
+      results[0] += solution.x[delta_start + j] / (j+1);
+      //results[1] += solution.x[a_start + j] / (j+1);
+    }
     results[1] = solution.x[a_start];
+
     for(int i = 2; i <= N; i++) {
       results[i] = solution.x[x_start + i - 2];
       results[N + i] = solution.x[y_start + i - 2];

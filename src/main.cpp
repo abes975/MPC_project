@@ -92,7 +92,9 @@ int main() {
           double px = j[1]["x"];
           double py = j[1]["y"];
           double psi = j[1]["psi"];
-          double v = j[1]["speed"];
+          double v_mph = j[1]["speed"];
+          // convert this value in meter per second
+          double v = v_mph * (1609. / 3600.);
 
           double steer_value = j[1]["steering_angle"];
           double throttle_value = j[1]["throttle"];
@@ -110,20 +112,23 @@ int main() {
             y[i] = -mx * sin_psi + my * cos_psi;
           }
 
-          double latency = 0.1;
+          // Define here the variable in milliseconds and in seconds
+          int latency = 100;
+          double latency_seconds = (double) latency / 1000;
           // After trasforming to car coord.. x0, y0 and psi are 0 so here
           // we take into account latency of the simulator.
-          double x0 =  v * latency;
-          double y0 = 0;
+          // Need to take in account orientation? of axis??
+          psi = -v / Lf * steer_value * latency_seconds;
+          double x0 =  v * cos(psi) * latency_seconds;
+          double y0 = v * sin(psi) * latency_seconds;
           // not sure if I have to convert steer_value into grad here...or
           // radians is ok.
-          psi = -v * steer_value / Lf * latency;
-          v += throttle_value * latency;
+          v += throttle_value * latency_seconds;
 
           Eigen::VectorXd coeffs = polyfit(x, y, 3);
-          double cte = polyeval(coeffs, x0); //- y0 that is 0;
+          double cte = polyeval(coeffs, x0) - y0; //that is 0;
           /// derivative of 3rd grade polynomio a*X^3 + b * X^2 + c* X + d -> c + 2 * b * x + 3 * a * X^2
-          double epsi = psi - atan(coeffs[1] + 2*coeffs[2]* x0 + 3*coeffs[3]* x0* x0);
+          double epsi = psi -atan(coeffs[1] + 2*coeffs[2]* x0 + 3*coeffs[3]* x0* x0);
 
           Eigen::VectorXd state(6);
           // Take into account latency before optimizing values
@@ -136,7 +141,7 @@ int main() {
 
           vector<double> vars = mpc.Solve(state, coeffs);
 
-          steer_value = -vars[0];
+          steer_value = -vars[0]; // deg2rad(25);
           throttle_value = vars[1];
 
           json msgJson;
@@ -183,7 +188,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(latency));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
