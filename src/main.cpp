@@ -72,7 +72,7 @@ int main() {
 
   // MPC is initialized here!
   MPC mpc;
-
+  
   h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -118,30 +118,33 @@ int main() {
           // After trasforming to car coord.. x0, y0 and psi are 0 so here
           // we take into account latency of the simulator.
           // Need to take in account orientation? of axis??
-          psi = -v / Lf * steer_value * latency_seconds;
-          double x0 =  v * cos(psi) * latency_seconds;
-          double y0 = v * sin(psi) * latency_seconds;
-          // not sure if I have to convert steer_value into grad here...or
-          // radians is ok.
+          double x0 = 0;
+          double y0 = 0;
+          double psi0_car = 0;
+          // For me those coord are after applying latency...so it's like we
+          // have a new state for the car...it moved for 100ms
+          double x1 = x0 + v * cos(psi0_car) * latency_seconds;
+          double y1 = y0 + v * sin(psi0_car) * latency_seconds;
+          double psi1_car = psi0_car - v * steer_value / Lf * latency_seconds;
           v += throttle_value * latency_seconds;
 
           Eigen::VectorXd coeffs = polyfit(x, y, 3);
-          double cte = polyeval(coeffs, x0) - y0; //that is 0;
+          double cte = polyeval(coeffs, x1) - y1; //that is 0;
           /// derivative of 3rd grade polynomio a*X^3 + b * X^2 + c* X + d -> c + 2 * b * x + 3 * a * X^2
-          double epsi = psi -atan(coeffs[1] + 2*coeffs[2]* x0 + 3*coeffs[3]* x0* x0);
+          double epsi = psi1_car -atan(coeffs[1] + 2*coeffs[2]* x1 + 3*coeffs[3]* x1* x1);
 
           Eigen::VectorXd state(6);
           // Take into account latency before optimizing values
-          state(0) = x0;
-          state(1) = y0;
-          state(2) = psi;
+          state(0) = x1;
+          state(1) = y1;
+          state(2) = psi1_car;
           state(3) = v;
           state(4) = cte;
           state(5) = epsi;
 
           vector<double> vars = mpc.Solve(state, coeffs);
 
-          steer_value = -vars[0]; // deg2rad(25);
+          steer_value = -vars[0] / deg2rad(25);
           throttle_value = vars[1];
 
           json msgJson;

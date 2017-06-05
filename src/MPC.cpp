@@ -10,15 +10,15 @@ using CppAD::AD;
 // Try to prdedict almost .8 seconds ahead...that means N = 8 dt = 0.10s
 // Our simulator has 100ms latency...so probably no meaning in reducing
 // dt under 0.1...or the point is how much ahead we predict...
-size_t N = 8;
-double dt = 0.10;
+size_t N = 10;
+double dt = 0.1;
 
 // How many values average the prediction
-int how_many = 4;
+int how_many = 1;
 
 double desired_cte = 0.0;
 double desired_epsi = 0.0;
-double desired_v = 60;
+double desired_v = 35;
 
 // These are the OFFSET inside the array :(( of the variable inside the vector
 // Used by the optimizer...VERY VERY CONFUSING!!!!
@@ -59,8 +59,8 @@ class FG_eval {
     // This is the difference between where we are and where we want to go
     // and also what speed we want to reach
     for (int i = 0; i < N; i++) {
-      fg[0] += 10 * CppAD::pow(vars[cte_start + i] - desired_cte, 2);
-      fg[0] += 15 * CppAD::pow(vars[epsi_start + i] - desired_epsi, 2);
+      fg[0] += CppAD::pow(vars[cte_start + i] - desired_cte, 2);
+      fg[0] += 50 * CppAD::pow(vars[epsi_start + i] - desired_epsi, 2);
       // With 10 reach 78.8 (and desired_v = 40)
       fg[0] += CppAD::pow(vars[v_start + i] - desired_v, 2);
     }
@@ -68,13 +68,13 @@ class FG_eval {
     // Minimize the use of actuators.
     for (int i = 0; i < N - 1; i++) {
       fg[0] += CppAD::pow(vars[delta_start + i], 2);
-      fg[0] += 40 * CppAD::pow(vars[a_start + i], 2);
+      fg[0] += CppAD::pow(vars[a_start + i], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += 500 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
-      fg[0] += 100 * CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
+      fg[0] += 1500 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
     // At fg[0] we have cost value so we need to shift up by one all the other
@@ -189,10 +189,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // What if i set those values between -1 and 1 ?? instead of normalizing
   // after returing the value?
   for (int i = delta_start; i < a_start; i++) {
-    //vars_lowerbound[i] = -0.436332;
-    //vars_upperbound[i] = 0.436332;
-    vars_lowerbound[i] = -1.0;
-    vars_upperbound[i] = 1.0;
+    vars_lowerbound[i] = -0.436332;
+    vars_upperbound[i] = 0.436332;
   }
 
   // Acceleration/decceleration upper and lower limits.
@@ -267,9 +265,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
     std::vector<double> results(2 + 2 * (N-1));
     for (int j = 0 ; j < how_many; j++) {
       results[0] += solution.x[delta_start + j] / (j+1);
-      //results[1] += solution.x[a_start + j] / (j+1);
+      results[1] += solution.x[a_start + j] / (j+1);
     }
-    results[1] = solution.x[a_start];
+    //results[1] = solution.x[a_start];
 
     for(int i = 2; i <= N; i++) {
       results[i] = solution.x[x_start + i - 2];
