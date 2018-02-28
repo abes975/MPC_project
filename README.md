@@ -2,7 +2,9 @@
 Self-Driving Car Engineer Nanodegree Program
 
 ---
-## Here's the result
+## Here's the output
+
+You can see the car driving on the track driven by MPC controller.
 
 
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/MUO3aprtbaI/0.jpg)](https://youtu.be/MUO3aprtbaI)
